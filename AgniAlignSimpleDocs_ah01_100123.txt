@@ -1,0 +1,97 @@
+## ######################
+## ->AgniAlign-- Really slow alignment for complex sequence relationships
+##   *** Requires this script and the "VSG_ModuleFB.py" script in the same directory ***
+##  -
+## ->Version:
+##  - This is version ah01 (Oct-01-2023).  This is an extreme pre-alpha version.  This is
+##  - Provisional experimental software that seems to do something but might not behave as expected
+##  - (which is not saying a lot, since it's not clear what is expected or what is "correct" in such alignments)
+##
+## ->Fuction: AgniAlign is used to provide a provisional picture of how a product from polymerase action
+##  - relates to the initial template(s).  Of note, the program differs from conventional aligners in
+##  - that the product is allowed to prime on itself or on the initial template in a manner that 
+##  - allows complex products from a simple DNA or RNA input.  The program is intended for relatively short
+##  - sequences (at most a few hundred bases) and is extremely slow and memory intensive for anything
+##  - larger
+##  - The algorithm here is a very highly modified Needleman Wunsch alignment with the "tweak" that
+##  - both strands of the template are allowed as sources of alignment, along with (optionally) the
+##  - product being allowed as a template for its own synthesis.  A major parameter choice is RefAlignOnly.
+##  - Setting this to True (default) instructs the program to account for every base in the product.
+##  - Untemplated bases are thus not allowed, but
+##  - they will generally show up as isolated alignments to a specific position in the template
+##  - Setting RefAlignOnly to False allows untemplated bases and may be more useful for many applications
+##  - A template is not required, and setting Template='' will attempt to parse the product from its own sequence
+##  -
+##  ->BigPicture: AgniAlign is a parsing program for relatively short sequences, assigned either based on a template
+##  - or based on assumptions that your molecule has served as its own template.
+##  - The program is designed for relatively short sequences  (<300 bases) and will both given nonsensical results
+##  - and take forever for longer sequences.
+##  - In particular, AgniAlign is not a substitute for Blast, BWA, Bowtie, Star, Blat, or CandyCrush
+##  - And likewise, the result is not a folding-- this is not a substitute for RNA fold
+##  - The program will indicate some fundamentally complex repeated or internally complementary repetitive structures
+##  - While the final parsing may not be unique, the may be instructive in understanding what might have occured during
+##  - Formation of a molecule of interest
+##  -  
+## ->Syntax:
+##  - python AgniAlign_<version> Template=<Sequence or FastA_FileName> Product=<Sequence_or_FastAFileName>
+##  -    This attempts to parse a product from a defined template with no untemplated bases allowed
+##  - python AgniAlign_<version> RefAlignOnly=False Template=<Sequence or FastA_FileName> Product=<Sequence_or_FastAFileName>
+##  -    This attempts to parse a product from a defined template with untemplated bases allowed
+##  - python AgniAlign_<version> RefAlignOnly=False Template='' Product=<Sequence_or_FastAFileName>
+##  -    This attempts to parse a product from its own template
+##  -
+## ->Required Parameters
+##  - Template=<Sequence or FastA_FileName> : Starting template sequence 
+##  - Product=<Sequence or FastA_FileName>: List of product sequences (either in command line or from a FastA file)
+##  -
+## ->Optional Parameters
+##  - Any of the valuoes in the "Parameters" section can be set from the command line with the syntax <parametername>=<Value>
+##  -   There should be no spaces in these assignments (either in the value or around the eqauls sign
+##  -
+## ->Other Notes
+##  - Requires Python 3.7+.  The pypy interpreter (www.pypy.org) may improve speed up to several fold.
+##  - For Current Version of this code and the required VSG Modulce, see:  https://github.com/FireLabSoftware/AgniAlign
+##  - Copywrite 2023 Andrew Fire and Stanford University, All Rights Reserved
+##  - Inspiration/Advice: Emily Greenwald, Drew Galls, Orkan Ilbay, Dae Eun Jeong, Vanya Zheludev, David Lipman, Usman Enam, Karen Artiles, Nelson Hall, Matt McCoy, Janie Kim, Collete Benko, Tsachy Weissman, Nimit Jain, William Wang
+## ###############
+## End Help
+
+## Begin List of Parameters
+## Rewards and penalties used to choose the optimal alignment
+## Note that these parameters will greatly affect the predicted alignments, particularly with no template
+## Since first principles, there's no 'right' answer to either, this remains to user
+## FWIW, the default parameters as of beta-release are listed for each 
+Match1 = 10           ## (match=) Reward assigned if two bases match in a candidate alignment <default=10>
+MisMatch1 = -20       ## (mismatch=) Cost assigned if two bases mismatch <default=-20>
+GapStart1 = -40       ## (gapstart=) Cost assigned for starting a gap <default=-40> ## note that a gap here is a base in the template that is skipped over in the product-- not vice versa      
+GapExtend1 = -2       ## (gapextend=) Cost assigned for extending a gap <default=-2>
+Jump1 = -80           ## (jump=) Penalty for jumping between templates <default=-80>
+SwitchStart1 = -40    ## (switchstart=) Base Penalty for switching between strands <default=-40>
+SwitchExtend1 = -1    ## (switchextend=) Incremental (per base) Penalty for switching between strands <default=-1>
+UnmatchedToMatched1 = -30 ## (unmatchedtomatched=) Penalty for switching from matched to unmatched <default=-30>
+MatchedToUnmatched1 = -30 ## (matchedtounmatched=) Penalty for switching from unmatched to matched <default=-30>
+HairpinTurn1 = -40    ## (hairpinturn=) Penalty for a zero-base-loop hairpin turn <default=-40>
+
+## Algorithm Options
+RefAlignOnly1 = True ## (refalignonly=) Setting this to False adds self-alignment capabilities
+PrioritizeInitialMatch1 = 1 ## (priority=) For equivalent scores for two alignments etermines whether Squegee chooses the first match (1) or last (2)
+
+## Display Paramaters
+Font1 = "DejaVuSerifMono Bold" ## (font=) Font used for the output graphic
+Scale1 = 24                ## (scale=) Scale for the drawing (and font size) pixels per base
+OutputFile1 = 'default'    ## (outputfile=) Name of output file.  Can also be a svg, pdf, png, tiff, html, etc.  SVG is recommended
+Rows1 = 'default' ## (rows=) Number of rows in the output (for multi-sequence figures)
+TemplateRNAMode1 = 'Auto' ## (templaternamode=) 'Auto' sets an RNA mode using "U" bases instead of T if there are Us in the input template.  Setting to "True" forces this
+
+## Default Sequences (defaults are included in code for Debug Purposes)
+Product1 = ''## (product=) 'GGATTAAATTTCATATTGTTAATATTTATTAATGTATGTACAATATGAAATTTCATATTGTACATACATTAATAAATATTAACAATATGAAATTTCGG' ##(product=) Experimental sequence observed
+Template1 = '' ## (template=) Template for the alignment (test for program development from Drew Galls was 'ACATACATTAATAAATATTAACAATATGAAATTTC')
+ProductName1 = 'default' ## (productname=) A name for the product
+TemplateName1 = 'default' ## (templatename=) A user name for the template
+## for multiple products or templates, use commas to separate or a FastA input file
+
+## Some colors that can be set
+CircleColor1 = {('Input1',1):'blue', ('Input1',-1):'red', ('Output1',1):'blue',('Output1',-1):'red'} ## (circlecolor=) +1 are sense, -1 are antisense
+TextColor1 = {True:'black', False:'gray50'} ## (textcolor=) Different text colors based on whether a given base is matched (true) or mismatched (false)
+
+## End List of Parameters
